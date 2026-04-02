@@ -17,6 +17,16 @@ print("\nCleaned Shape:",df.shape)
 print(df.head())
 # columns
 print(df.columns)
-print(df.info())
 # info
 print(df.info())
+
+
+# top 10 items by DTC Netsales
+top_items = (
+    df.groupby(["SKU","Item"],as_index=False)["DTC Netsales $s"]
+    .sum()
+    .sort_values("DTC Netsales $s", ascending=False)
+    .head(10)
+)
+print("\nTop 10 Items by DTC Netsales:")
+print(top_items)
