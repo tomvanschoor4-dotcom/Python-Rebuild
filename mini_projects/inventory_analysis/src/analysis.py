@@ -21,6 +21,14 @@ print(df.head())
 # info
 print(df.info())
 
+# filtering to the latest week // latest week in the dataset
+latest_week=df["Week End"].max()
+print("\nLatest Week End:",latest_week)
+
+# keep only latest week
+df_latest = df[df["Week End"]==latest_week].copy()
+print("Latest Week Shape:", df_latest.shape)
+print(df_latest[["Week Start","Week End"]].drop_duplicates().head())
 
 # top 10 items by DTC Netsales
 top_items = (
