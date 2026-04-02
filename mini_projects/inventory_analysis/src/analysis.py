@@ -1,4 +1,5 @@
 import pandas as pd
+pd.options.display.float_format='{:,.0f}'.format
 
 # load data
 df = pd.read_excel("../data/914_fiscal_recap_data_dump.xlsx")
@@ -16,7 +17,7 @@ df = df.reset_index(drop=True)
 print("\nCleaned Shape:",df.shape)
 print(df.head())
 # columns
-print(df.columns)
+# print(df.columns)
 # info
 print(df.info())
 
@@ -30,3 +31,27 @@ top_items = (
 )
 print("\nTop 10 Items by DTC Netsales:")
 print(top_items)
+
+# category level summary
+category_summary = (
+    df.groupby(["Dept","Class","Subclass"],as_index=False)
+    .agg(
+        dtc_netsales=("DTC Netsales $s","sum"),
+        dtc_netsales_ly=("DTC Netsales $s LY","sum"),
+        dtc_demand=("DTC Gross Demand Us","sum"),
+        sku_count=("SKU","nunique")
+    )
+    .sort_values("dtc_netsales",ascending=False)
+)
+
+print("\nCategory Summary:")
+print(category_summary.head(10))
+
+# sales YoY percentage
+category_summary["sales_yoy_pct"]=(
+    (category_summary["dtc_netsales"]-category_summary["dtc_netsales_ly"])
+    .div(category_summary["dtc_netsales_ly"].replace(0,pd.NA))
+    *100
+)
+print("\nCategory Summary with YoY %:")
+print(category_summary.head(10))
