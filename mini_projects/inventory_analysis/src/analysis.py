@@ -28,27 +28,6 @@ df_latest = df[df["Week End"]==latest_week].copy()
 print("Latest Week Shape:", df_latest.shape)
 print(df_latest[["Week Start","Week End"]].drop_duplicates().head())
 
-# top items for the latest week
-top_items_latest = (
-    df_latest.groupby(["SKU","Item"], as_index=False)["DTC Netsales $s"]
-.sum()
-.sort_values("DTC Netsales $s", ascending=False)
-.head(10)
-)
-
-print("\nTop 10 Items by DTC Netsales - Latest Week")
-print(top_items_latest)
-
-# top 10 items by DTC Netsales
-top_items = (
-    df.groupby(["SKU","Item"],as_index=False)["DTC Netsales $s"]
-    .sum()
-    .sort_values("DTC Netsales $s", ascending=False)
-    .head(10)
-)
-print("\nTop 10 Items by DTC Netsales:")
-print(top_items)
-
 # YoY %
 category_summary_latest = (
     df_latest.groupby(["Dept","Class","Subclass"], as_index=False)
@@ -93,3 +72,59 @@ category_summary["sales_yoy_pct"]=(
 )
 print("\nCategory Summary with YoY %:")
 print(category_summary.head(10))
+
+
+
+prior_week = df[df["Week End"]< latest_week]["Week End"].max()
+print("\nPrior Week:",prior_week)
+
+df_prior = df[df["Week End"] == prior_week].copy()
+
+print("Prior week shape:", df_prior.shape)
+
+category_summary_prior = (
+    df_prior.groupby(["Dept", "Class", "Subclass"], as_index=False)
+    .agg(
+        dtc_netsales_pw=("DTC Netsales $s", "sum")
+    )
+)
+
+category_wow = pd.merge(
+    category_summary_latest,
+    category_summary_prior,
+    on=["Dept", "Class", "Subclass"],
+    how="left"
+)
+
+category_wow["wow_pct"] = (
+    (category_wow["dtc_netsales"] - category_wow["dtc_netsales_pw"])
+    .div(category_wow["dtc_netsales_pw"].replace(0, pd.NA))
+    * 100
+)
+
+category_wow = category_wow.sort_values("dtc_netsales", ascending=False)
+
+print("\nCategory WoW Summary:")
+print(category_wow.head(10))
+
+# top items for the latest week
+top_items_latest = (
+    df_latest.groupby(["SKU","Item"], as_index=False)["DTC Netsales $s"]
+.sum()
+.sort_values("DTC Netsales $s", ascending=False)
+.head(10)
+)
+
+print("\nTop 10 Items by DTC Netsales - Latest Week")
+print(top_items_latest)
+
+# top 10 items by DTC Netsales
+top_items = (
+    df.groupby(["SKU","Item"],as_index=False)["DTC Netsales $s"]
+    .sum()
+    .sort_values("DTC Netsales $s", ascending=False)
+    .head(10)
+)
+print("\nTop 10 Items by DTC Netsales:")
+print(top_items)
+
