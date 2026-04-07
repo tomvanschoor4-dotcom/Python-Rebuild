@@ -1,6 +1,9 @@
 import pandas as pd
 from pathlib import Path
-
+from openpyxl.styles import Font,PatternFill,Alignment
+from openpyxl.utils import get_column_letter
+from openpyxl.formatting.rule import CellIsRule
+from openpyxl.styles import PatternFill
 
 pd.options.display.float_format='{:,.0f}'.format
 
@@ -87,7 +90,8 @@ def build_category_summary(df: pd.DataFrame, demand_col: str) -> pd.DataFrame:
         (summary["dtc_netsales"] - summary["dtc_netsales_ly"])
         .div(summary["dtc_netsales_ly"].replace(0, pd.NA))
         * 100
-    )
+    ).astype("Float64").round(1)
+
 
     return summary.sort_values("dtc_netsales", ascending=False)
 
@@ -113,7 +117,7 @@ def build_wow_summary(
         (wow["dtc_netsales"] - wow["dtc_netsales_pw"])
         .div(wow["dtc_netsales_pw"].replace(0, pd.NA))
         * 100
-    )
+    ).astype("Float64").round(1)
 
     return wow.sort_values("dtc_netsales", ascending=False)
 
@@ -177,13 +181,86 @@ def build_overview(
 
 
 def export_report(output_path: str, outputs: dict[str, pd.DataFrame]) -> None:
-    """Export all outputs into one Excel workbook."""
+    """Export all outputs into one formatted Excel workbook."""
     output_file = Path(output_path)
     output_file.parent.mkdir(parents=True, exist_ok=True)
 
     with pd.ExcelWriter(output_file, engine="openpyxl") as writer:
         for sheet_name, data in outputs.items():
-            data.to_excel(writer, sheet_name=sheet_name[:31], index=False)
+            safe_sheet_name = sheet_name[:31]
+            data.to_excel(writer, sheet_name=safe_sheet_name, index=False)
+
+            ws = writer.sheets[safe_sheet_name]
+
+            # Freeze header row
+            ws.freeze_panes = "A2"
+
+            # Header formatting
+            header_fill = PatternFill(fill_type="solid", fgColor="1F4E78")
+            header_font = Font(color="FFFFFF", bold=True)
+            header_alignment = Alignment(horizontal="center", vertical="center")
+
+            for cell in ws[1]:
+                cell.fill = header_fill
+                cell.font = header_font
+                cell.alignment = header_alignment
+
+            # Detect columns by name for formatting
+            currency_keywords = ["sales", "netsales", "demand"]
+            percent_keywords = ["pct", "%"]
+            date_keywords = ["week", "date"]
+
+            # Auto-width + format columns
+            for col_idx, column_name in enumerate(data.columns, start=1):
+                col_letter = get_column_letter(col_idx)
+
+                # Set width based on longest value in the column
+                max_length = len(str(column_name))
+                for value in data[column_name]:
+                    if pd.notna(value):
+                        max_length = max(max_length, len(str(value)))
+                ws.column_dimensions[col_letter].width = min(max_length + 2, 35)
+
+                col_name_lower = column_name.lower()
+
+                for row_idx in range(2, len(data) + 2):
+                    cell = ws[f"{col_letter}{row_idx}"]
+
+                    # Currency formatting
+                    if any(keyword in col_name_lower for keyword in currency_keywords):
+                        if pd.notna(cell.value) and isinstance(cell.value, (int, float)):
+                            cell.number_format = '$#,##0'
+
+                    # Percent formatting
+                    elif any(keyword in col_name_lower for keyword in percent_keywords):
+                        if pd.notna(cell.value) and isinstance(cell.value, (int, float)):
+                            cell.number_format = '0.0'
+
+                    # Date formatting
+                    elif any(keyword in col_name_lower for keyword in date_keywords):
+                        if hasattr(cell.value, "year"):
+                            cell.number_format = 'yyyy-mm-dd'
+
+            # Optional: turn on autofilter
+            ws.auto_filter.ref = ws.dimensions
+    green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+
+    # Find YoY column index
+    for col_idx, col_name in enumerate(data.columns, start=1):
+        if "yoy" in col_name.lower() or "wow" in col_name.lower():
+            col_letter = get_column_letter(col_idx)
+            range_str = f"{col_letter}2:{col_letter}{len(data)+1}"
+
+            ws.conditional_formatting.add(
+                range_str,
+                CellIsRule(operator='greaterThan', formula=['0'], fill=green_fill)
+            )
+            ws.conditional_formatting.add(
+                range_str,
+                CellIsRule(operator='lessThan', formula=['0'], fill=red_fill)
+            )
+
 
 
 def main() -> None:
@@ -253,7 +330,4 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    try:
-        main()
-    except Exception as e:
-        print(f"Error: {e}")
+    main()
