@@ -25,7 +25,7 @@ def clean_data(df: pd.DataFrame) -> pd.DataFrame:
             df[col] = pd.to_datetime(df[col], errors="coerce")
 
     # reset index after cleaning
-    df.df.reset_index(drop=True)
+    df = df.reset_index(drop=True)
 
     return df
 
@@ -38,7 +38,7 @@ def validate_columns(df:pd.DataFrame) -> None:
         "SKU",
         "Item",
         "Week Start",
-        "Weed End",
+        "Week End",
         "DTC Netsales $s",
         "DTC Netsales $s LY"
     ]
@@ -257,4 +257,3 @@ if __name__ == "__main__":
         main()
     except Exception as e:
         print(f"Error: {e}")
-        
