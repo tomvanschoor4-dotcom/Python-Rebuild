@@ -1,3 +1,4 @@
+import argparse
 import pandas as pd
 from pathlib import Path
 from openpyxl.styles import Font,PatternFill,Alignment
@@ -279,16 +280,61 @@ def export_report(output_path: str, outputs: dict[str, pd.DataFrame]) -> None:
                 for row in range(2, len(data) + 2):
                     ws[f"A{row}"].font = Font(bold=True)     
 
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="Build an inventory analysis Excel report."
+    )
+
+    parser.add_argument(
+        "--input",
+        default="../data/dummy revenue data.xlsx",
+        help="Path to the input Excel file"
+    )
+
+    parser.add_argument(
+        "--output",
+        default="../outputs/inventory_report.xlsx",
+        help="Path to the output Excel report"
+    )
+
+    parser.add_argument(
+        "--top-n",
+        type=int,
+        default=10,
+        help="Number of top items to return"
+    )
+
+    parser.add_argument(
+        "--dept",
+        type=str,
+        default=None,
+        help="Optional department filter, e.g. 914"
+    )
+
+    return parser.parse_args()
 
 def main() -> None:
-    input_file = "../data/dummy revenue data.xlsx"
-    output_file = "../outputs/inventory_report.xlsx"
+    args = parse_args()
+
+    input_file = args.input
+    output_file = args.output
+    top_n = args.top_n
+    dept_filter = args.dept
 
     # Load + clean
     df = load_data(input_file)
     df = clean_data(df)
     validate_columns(df)
     demand_col = get_demand_column(df)
+
+    # Optional department filter
+    if dept_filter is not None:
+        df = df[df["Dept"].astype(str) == str(dept_filter)].copy()
+        print(f"\nApplied Dept filter: {dept_filter}")
+        print("Filtered shape:", df.shape)
+
+        if df.empty:
+            raise ValueError(f"No rows found for Dept {dept_filter}")
 
     # Latest + prior week
     df_latest, latest_week = get_latest_week(df)
@@ -305,8 +351,8 @@ def main() -> None:
     category_summary_latest = build_category_summary(df_latest, demand_col)
     category_summary_full = build_category_summary(df, demand_col)
     category_wow = build_wow_summary(category_summary_latest, df_prior)
-    top_items_latest = build_top_items(df_latest, n=10)
-    top_items_full = build_top_items(df, n=10)
+    top_items_latest = build_top_items(df_latest, n=top_n)
+    top_items_full = build_top_items(df, n=top_n)
     overview = build_overview(
         latest_week,
         prior_week,
@@ -326,13 +372,12 @@ def main() -> None:
     print("\nCategory WoW Summary")
     print(category_wow.head(10))
 
-    print("\nTop 10 Items by DTC Netsales - Latest Week")
+    print(f"\nTop {top_n} Items by DTC Netsales - Latest Week")
     print(top_items_latest)
 
-    print("\nTop 10 Items by DTC Netsales - Full Period")
+    print(f"\nTop {top_n} Items by DTC Netsales - Full Period")
     print(top_items_full)
 
-    # Export workbook
     outputs = {
         "Overview": overview,
         "Latest Week Summary": category_summary_latest,
