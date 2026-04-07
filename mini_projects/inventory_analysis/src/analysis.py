@@ -3,7 +3,7 @@ from pathlib import Path
 from openpyxl.styles import Font,PatternFill,Alignment
 from openpyxl.utils import get_column_letter
 from openpyxl.formatting.rule import CellIsRule
-from openpyxl.styles import PatternFill
+
 
 pd.options.display.float_format='{:,.0f}'.format
 
@@ -243,24 +243,41 @@ def export_report(output_path: str, outputs: dict[str, pd.DataFrame]) -> None:
 
             # Optional: turn on autofilter
             ws.auto_filter.ref = ws.dimensions
-    green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
-    red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
+            green_fill = PatternFill(start_color="C6EFCE", end_color="C6EFCE", fill_type="solid")
+            red_fill = PatternFill(start_color="FFC7CE", end_color="FFC7CE", fill_type="solid")
 
-    # Find YoY column index
-    for col_idx, col_name in enumerate(data.columns, start=1):
-        if "yoy" in col_name.lower() or "wow" in col_name.lower():
-            col_letter = get_column_letter(col_idx)
-            range_str = f"{col_letter}2:{col_letter}{len(data)+1}"
+            # Find YoY column index
+            for col_idx, col_name in enumerate(data.columns, start=1):
+                col_name_lower = col_name.lower()
+   
+                if "yoy" in col_name_lower or "wow" in col_name_lower or "pct" in col_name_lower:
+                    col_letter = get_column_letter(col_idx)
+                    start_row = 2
+                    end_row = len(data) + 1
+                    range_str = f"{col_letter}{start_row}:{col_letter}{end_row}"
 
-            ws.conditional_formatting.add(
-                range_str,
-                CellIsRule(operator='greaterThan', formula=['0'], fill=green_fill)
-            )
-            ws.conditional_formatting.add(
-                range_str,
-                CellIsRule(operator='lessThan', formula=['0'], fill=red_fill)
-            )
-
+                    ws.conditional_formatting.add(
+                        range_str,
+                        CellIsRule(
+                            operator='greaterThan', 
+                            formula=['0'], 
+                            fill=green_fill,
+                            stopIfTrue=True
+                        ),
+                    )
+                    ws.conditional_formatting.add(
+                        range_str,
+                        CellIsRule(operator='lessThan', 
+                               formula=['0'], 
+                               fill=red_fill,
+                               stopIfTrue=True,
+                        ),
+                    )
+            if safe_sheet_name == "Overview":
+                ws.column_dimensions["A"].width = 28
+                ws.column_dimensions["B"].width = 18
+                for row in range(2, len(data) + 2):
+                    ws[f"A{row}"].font = Font(bold=True)     
 
 
 def main() -> None:
@@ -327,7 +344,6 @@ def main() -> None:
 
     export_report(output_file, outputs)
     print(f"\nReport created: {output_file}")
-
-
+    
 if __name__ == "__main__":
     main()
